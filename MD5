@@ -1,0 +1,10 @@
+c1332904c41712e9af559089f2273776 *DESCRIPTION
+c340422f3012b73e2581b86727da70af *LICENSE
+bae08d3bbe0871a4f2a5131f257ff113 *NAMESPACE
+dd72c543f9a064556c4572333f5770c2 *R/combineSpectra.R
+5ffd59ce7666c6ea857c16f463197aaf *R/makeComposite.R
+2f0bdcb09ac15cf4aaba78daaf62b9f6 *R/plotSpectra.R
+a423b0fbd7b09058ea34560aab33ddbc *R/zzz.R
+7695ff79cedec94cfb5bee8be80ece35 *man/combineSpectra.Rd
+66d7af08e904ed758e249db5e04ee7bc *man/makeComposite.Rd
+d92c11dcb61127c219c20a0f530550c5 *man/plotSpectra.Rd
