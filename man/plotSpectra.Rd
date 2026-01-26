@@ -9,12 +9,12 @@ plotSpectra(
   file_type = "csv",
   sep = ",",
   header = TRUE,
-  normalization = c("none", "simple", "min-max", "z-score"),
+  normalization = c("none", "simple", "min-max", "z-score", "area", "vector"),
   x_config = NULL,
   x_reverse = FALSE,
   y_trans = c("linear", "log10", "sqrt"),
-  x_label = "Energy (keV)",
-  y_label = "Counts/1000 s",
+  x_label = NULL,
+  y_label = NULL,
   line_size = 0.5,
   palette = "black",
   plot_mode = c("individual", "overlapped", "stacked"),
@@ -35,7 +35,15 @@ plotSpectra(
 
 \item{header}{Logical. Whether the files contain a header row. Default is `TRUE`.}
 
-\item{normalization}{Character. Normalization method to apply to y-axis data. One of `"none"`, `"simple"` (divide by max), `"min-max"`, or `"z-score"`. Default is `"none"`.}
+\item{normalization}{Character. Normalization method to apply to y-axis data. Options are:
+\describe{
+  \item{`"none"`}{No normalization is applied (default).}
+  \item{`"simple"`}{Divide by the maximum intensity.}
+  \item{`"min-max"`}{Scale intensities to the [0,1] range.}
+  \item{`"z-score"`}{Subtract the mean and divide by the standard deviation of intensities.}
+  \item{`"area"`}{Divide by the total sum of intensities so the spectrum area = 1.}
+  \item{`"vector"`}{Normalize the spectrum as a unit vector by dividing by the square root of the sum of squared intensities (L2 normalization).}
+}}
 
 \item{x_config}{Numeric vector of length 3. Specifies x-axis range and breaks: `c(min, max, step)`.}
 
@@ -45,7 +53,7 @@ plotSpectra(
 
 \item{x_label}{Character or expression. Label for the x-axis. Supports mathematical notation via `expression()`.}
 
-\item{y_label}{Character or expression. Label for the y-axis.}
+\item{y_label}{Character or expression. Label for the y-axis. Supports mathematical notation via `expression()`.}
 
 \item{line_size}{Numeric. Width of the spectral lines. Default is `0.5`.}
 

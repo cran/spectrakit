@@ -6,9 +6,9 @@
 \usage{
 makeComposite(
   folder = ".",
-  custom_order,
-  rows,
-  cols,
+  custom_order = NULL,
+  rows = NULL,
+  cols = NULL,
   spacing = 15,
   resize_mode = c("none", "fit", "fill", "width", "height", "both"),
   labels = list(),
@@ -32,24 +32,28 @@ makeComposite(
 
 \item{spacing}{Integer. Spacing (in pixels) between tiles. Default is `15`}
 
-\item{resize_mode}{Character. One of "none", "fit", "fill", "width", "height", "both";
-- "none": keep each panel at original size
-- "fit": scale each panel to fit within the smallest image dimensions (preserving aspect ratio)
-- "fill": scale and crop each panel to exactly fill the smallest dimensions
-- "width": resize to minimum width, keep original height
-- "height": resize to minimum height, keep original width
-- "both": force exact width and height (may distort aspect ratio).}
+\item{resize_mode}{Character. Method to resize panels in the composite. Options are:
+\describe{
+  \item{`"none"`}{Keep each panel at its original size.}
+  \item{`"fit"`}{Scale each panel to fit within the smallest image dimensions, preserving aspect ratio.}
+  \item{`"fill"`}{Scale and crop each panel to exactly fill the smallest dimensions.}
+  \item{`"width"`}{Resize each panel to the minimum width, keeping the original height.}
+  \item{`"height"`}{Resize each panel to the minimum height, keeping the original width.}
+  \item{`"both"`}{Force panels to the exact width and height, which may distort aspect ratio.}
+}}
 
 \item{labels}{List of up to 4 character vectors. Each vector corresponds to one label layer and must be the same length as the number of non-NA images. Use empty strings "" or NULL entries to omit specific labels.}
 
-\item{label_settings}{List of named lists. Each named list specifies settings for a label layer;
-- size: font size (e.g., 100)
-- color: font color
-- font: font family (e.g., "Arial")
-- boxcolor: background color behind text (or NA for none)
-- location: offset from gravity anchor (e.g., "+10+10")
-- gravity: placement anchor (e.g., "northwest")
-- weight: font weight (e.g., 400 = normal, 700 = bold).}
+\item{label_settings}{List of named lists. Each named list specifies settings for a label layer. Options include:
+\describe{
+  \item{`size`}{Font size (e.g., 100).}
+  \item{`color`}{Font color.}
+  \item{`font`}{Font family (e.g., `"Arial"`).}
+  \item{`boxcolor`}{Background color behind text, or `NA` for none.}
+  \item{`location`}{Offset from the gravity anchor (e.g., `"+10+10"`).}
+  \item{`gravity`}{Placement anchor for the label (e.g., `"northwest"`).}
+  \item{`weight`}{Font weight (e.g., `400` = normal, `700` = bold).}
+}}
 
 \item{background_color}{Character. Background color used for blank tiles and borders. Use `"none"` for transparency. Default is `"white"`.}
 

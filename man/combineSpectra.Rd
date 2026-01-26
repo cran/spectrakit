@@ -36,7 +36,7 @@ combineSpectra(
 \item{orientation}{Character. Output orientation. Use `"columns"` (default) to keep each spectrum as a column, or `"rows"` to transpose so each spectrum is a row.}
 }
 \value{
-A `tibble` that can be exported as, for example, a CSV file. Each spectrum is either a column (default) or row, depending on `orientation`. The common column (e.g., wavelength) is retained.
+A `tibble` that can be exported as, for example, a CSV file. Each spectrum is either a column (default) or row, depending on `orientation`; a sum or mean spectrum can optionally be computed using `rowSums()` or `colSums()`, or `rowMeans()` or `colMeans()`, respectively. The common column (e.g., wavelength) is retained.
 }
 \description{
 Reads spectral data from multiple files in a folder, merges them by a common column (e.g., wavelength),

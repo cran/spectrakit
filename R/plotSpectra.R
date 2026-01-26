@@ -12,12 +12,20 @@
 #' @param file_type Character. File extension (without dot) to search for. Default is `"csv"`.
 #' @param sep Character. Delimiter for file columns. Use `","` for comma-separated (default) or `"\\t"` for tab-delimited files.
 #' @param header Logical. Whether the files contain a header row. Default is `TRUE`.
-#' @param normalization Character. Normalization method to apply to y-axis data. One of `"none"`, `"simple"` (divide by max), `"min-max"`, or `"z-score"`. Default is `"none"`.
+#' @param normalization Character. Normalization method to apply to y-axis data. Options are:
+#'   \describe{
+#'     \item{`"none"`}{No normalization is applied (default).}
+#'     \item{`"simple"`}{Divide by the maximum intensity.}
+#'     \item{`"min-max"`}{Scale intensities to the [0,1] range.}
+#'     \item{`"z-score"`}{Subtract the mean and divide by the standard deviation of intensities.}
+#'     \item{`"area"`}{Divide by the total sum of intensities so the spectrum area = 1.}
+#'     \item{`"vector"`}{Normalize the spectrum as a unit vector by dividing by the square root of the sum of squared intensities (L2 normalization).}
+#'   }
 #' @param x_config Numeric vector of length 3. Specifies x-axis range and breaks: `c(min, max, step)`.
 #' @param x_reverse Logical. If `TRUE`, reverses the x-axis. Default is `FALSE`.
 #' @param y_trans Character. Transformation for the y-axis. One of `"linear"`, `"log10"`, or `"sqrt"`. Default is `"linear"`.
 #' @param x_label Character or expression. Label for the x-axis. Supports mathematical notation via `expression()`.
-#' @param y_label Character or expression. Label for the y-axis.
+#' @param y_label Character or expression. Label for the y-axis. Supports mathematical notation via `expression()`.
 #' @param line_size Numeric. Width of the spectral lines. Default is `0.5`.
 #' @param palette Character or vector. Color setting: a single color (e.g., `"black"`), a ColorBrewer palette name (e.g., `"Dark2"`), or a custom color vector.
 #' @param plot_mode Character. Plotting style. One of `"individual"` (one plot per spectrum), `"overlapped"` (all in one), or `"stacked"` (faceted). Default is `"individual"`.
@@ -75,217 +83,266 @@
 #' @importFrom rlang sym
 #' @export
 plotSpectra <- function(
-    folder = ".",
-    file_type = "csv",
-    sep = ",",  # Use "\t" if it is tab
-    header = TRUE,
-    normalization = c("none", "simple", "min-max", "z-score"),
-    x_config = NULL, # Numeric vector of length 3 specifying axis limits and break positions, e.g. c(min, max, step)
-    x_reverse = FALSE,
-    y_trans = c("linear", "log10", "sqrt"), # Choose y-axis transformation: linear (default), log10, or sqrt
-    x_label = "Energy (keV)", # For complex formatting, use expression(), e.g. expression(Wavenumber~(cm^{-1}))
-    y_label = "Counts/1000 s", # For complex formatting, use expression(), e.g. expression(Delta*E["00"]^{"*"}~(a.u.))
-    line_size = 0.5,
-    palette = "black", # A single colour, or the ColorBrewer palette name "Dark2", or a custom vector
-    plot_mode = c("individual", "overlapped", "stacked"),  # Default is "individual"
-    display_names = FALSE, # If TRUE, displays the title for individual spectra or the legend for combined spectra
-    vertical_lines = NULL,  # A numeric vector of x positions where vertical dashed lines will be drawn
-    shaded_ROIs = NULL, # A list of numeric vectors, each with two elements c(xmin, xmax), defining shaded rectangular regions along x
-    annotations = NULL, # A data frame with columns 'file', 'x', 'y', 'label'; adds text annotations at specified points in each spectrum
-    output_format = "tiff", # Choose output file format ("tiff", "png", "pdf", etc.)
-    output_folder = NULL
-    ) {
-  normalization <- match.arg(normalization)
-  plot_mode <- match.arg(plot_mode)
-  y_trans <- match.arg(y_trans)
+                folder = ".",
+                file_type = "csv",
+                sep = ",",
+                header = TRUE,
+                normalization = c("none", "simple", "min-max", "z-score", "area", "vector"),
+                x_config = NULL,
+                x_reverse = FALSE,
+                y_trans = c("linear", "log10", "sqrt"),
+                x_label = NULL,
+                y_label = NULL,
+                line_size = 0.5,
+                palette = "black",
+                plot_mode = c("individual", "overlapped", "stacked"),
+                display_names = FALSE,
+                vertical_lines = NULL,
+                shaded_ROIs = NULL,
+                annotations = NULL,
+                output_format = "tiff",
+                output_folder = NULL
+) {
 
-  # Define the custom theme with dynamic legend control
-  plot_theme <- theme_bw(base_family = "sans") +
-    theme(
-      panel.grid.major.x = element_blank(),
-      panel.grid.major.y = element_blank(),
-      panel.grid.minor.x = element_blank(),
-      panel.grid.minor.y = element_blank(),
-      axis.ticks.x = element_line(color = "black"),
-      axis.ticks.y = element_line(color = "black"),
-      axis.text.x = element_text(color = "black", size = 10),
-      axis.text.y = element_text(color = "black", size = 10),
-      axis.title.x = element_text(color = "black", size = 12),
-      axis.title.y = element_text(color = "black", size = 12),
-      legend.position = if (display_names) "right" else "none",
-      legend.title = element_blank(),
-      plot.margin = margin(0.2,0.5,0.2,0.2, "cm")
-    )
+        normalization <- match.arg(normalization)
+        plot_mode <- match.arg(plot_mode)
+        y_trans <- match.arg(y_trans)
 
-  # Read files
-  files <- list.files(folder, pattern = paste0("\\.", file_type, "$"), full.names = TRUE)
-  spectra_list <- lapply(files, function(file) {
-    data <- read_delim(file, delim = sep, col_names = header, show_col_types = FALSE)
+        p_out <- list()  # collect all plots
 
-    # Rename first two columns to "x" and "y"
-    if (ncol(data) >= 2) {
-      colnames(data)[1:2] <- c("x", "y")
-    } else {
-      stop(paste("File", file, "must have at least two columns for x and y"))
-    }
+        plot_theme <- theme_bw(base_family = "sans") +
+                theme(
+                        panel.grid.major.x = element_blank(),
+                        panel.grid.major.y = element_blank(),
+                        panel.grid.minor.x = element_blank(),
+                        panel.grid.minor.y = element_blank(),
+                        axis.ticks.x = element_line(color = "black"),
+                        axis.ticks.y = element_line(color = "black"),
+                        axis.text.x = element_text(color = "black", size = 10),
+                        axis.text.y = element_text(color = "black", size = 10),
+                        axis.title.x = element_text(color = "black", size = 12),
+                        axis.title.y = element_text(color = "black", size = 12),
+                        legend.position = if (display_names) "right" else "none",
+                        legend.title = element_blank(),
+                        plot.margin = margin(0.2, 0.5, 0.2, 0.2, "cm")
+                )
 
-    # Ensure numeric
-    data <- data %>%
-      mutate(x = as.numeric(x),
-             y = as.numeric(y))
+        files <- list.files(folder, pattern = paste0("\\.", file_type, "$"), full.names = TRUE)
 
-    # Apply normalization
-    data$y <- switch(normalization,
-                     none = data$y,
-                     simple = data$y / max(data$y, na.rm = TRUE),
-                     "min-max" = (data$y - min(data$y, na.rm = TRUE)) / (max(data$y, na.rm = TRUE) - min(data$y, na.rm = TRUE)),
-                     "z-score" = scale(data$y)[,1])
-    data$file <- tools::file_path_sans_ext(basename(file))
-    return(data)
-  })
+        spectra_list <- lapply(files, function(file) {
 
-  spectra <- bind_rows(spectra_list)
+                data <- read_delim(file, delim = sep, col_names = header, show_col_types = FALSE)
 
-  # Determine color scale
-  n_files <- length(unique(spectra$file))
-  color_scale <- if (length(palette) == 1 && palette != "Dark2") {
-    scale_color_manual(values = rep(palette, n_files))
-  } else if (identical(palette, "Dark2")) {
-    scale_color_brewer(palette = "Dark2")
-  } else if (length(palette) > 1) {
-    scale_color_manual(values = rep(palette, length.out = n_files))
-  } else {
-    stop("Invalid `palette`. Use a single color, 'Dark2', or a custom vector.")
-  }
+                if (ncol(data) < 2)
+                        stop(paste("File", file, "must have at least two columns for x and y"))
 
-  if (plot_mode == "individual") {
-    for (file_name in unique(spectra$file)) {
-      data_sub <- filter(spectra, file == !!file_name)
-      p <- ggplot(data_sub, aes(x = x, y = y)) +
-        geom_line(linewidth = line_size, color = if (length(palette) == 1 && palette != "Dark2") palette else "black") +
-        labs(x = x_label, y = y_label, title = if (display_names) file_name else NULL) +
-        plot_theme
+                colnames(data)[1:2] <- c("x", "y")
 
-      # x-axis scale
-      if (!is.null(x_config)) {
-              if (x_reverse) {
-                      p <- p + scale_x_reverse(
-                              limits = c(x_config[2], x_config[1]),
-                              breaks = seq(x_config[2], x_config[1], -x_config[3]),
-                              expand = expansion()
-                      )
-              } else {
-                      p <- p + scale_x_continuous(
-                              limits = x_config[1:2],
-                              breaks = seq(x_config[1], x_config[2], x_config[3]),
-                              expand = expansion()
-                      )
-              }
-      }
+                data <- data %>%
+                        mutate(x = as.numeric(x), y = as.numeric(y)) %>%
+                        filter(x >= x_config[1], x <= x_config[2])
 
-      # y-axis scale
-      if (y_trans != "linear") {
-        p <- p + scale_y_continuous(trans = y_trans)
-      }
+                data$y <- switch(
+                        normalization,
+                        none = data$y,
+                        simple = data$y / max(data$y, na.rm = TRUE),
+                        "min-max" = (data$y - min(data$y, na.rm = TRUE)) /
+                                (max(data$y, na.rm = TRUE) - min(data$y, na.rm = TRUE)),
+                        "z-score" = (data$y - mean(data$y, na.rm = TRUE)) / sd(data$y, na.rm = TRUE),
+                        "area" = data$y / sum(data$y, na.rm = TRUE),
+                        "vector" = data$y / sqrt(sum(data$y^2, na.rm = TRUE))
+                )
 
-      # Optional extras
-      if (!is.null(vertical_lines)) {
-        for (v in vertical_lines) p <- p + geom_vline(xintercept = v, linetype = "dashed", color = "grey30")
-      }
-      if (!is.null(shaded_ROIs)) {
-        for (roi in shaded_ROIs) p <- p + annotate("rect", xmin = roi[1], xmax = roi[2], ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "grey55")
-      }
-      if (!is.null(annotations)) {
-        ann_sub <- filter(annotations, file == !!file_name)
-        if (nrow(ann_sub) > 0) {
-          p <- p + geom_text(data = ann_sub, aes(x = x, y = y, label = label), inherit.aes = FALSE)
+                data$file <- tools::file_path_sans_ext(basename(file))
+                data
+        })
+
+        spectra <- bind_rows(spectra_list)
+
+        n_files <- length(unique(spectra$file))
+        color_scale <- if (length(palette) == 1 && palette != "Dark2") {
+                scale_color_manual(values = rep(palette, n_files))
+        } else if (identical(palette, "Dark2")) {
+                scale_color_brewer(palette = "Dark2")
+        } else if (length(palette) > 1) {
+                scale_color_manual(values = rep(palette, length.out = n_files))
+        } else {
+                stop("Invalid `palette`.")
         }
-      }
 
-      if (!is.null(output_folder)) {
-      ggsave(
-        filename = paste0(tools::file_path_sans_ext(file_name), "_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".", output_format),
-        plot = p,
-        device = output_format,
-        path = output_folder,
-        scale = 1,
-        width = 15,
-        height = 9.3,
-        units = "cm",
-        dpi = 300,
-        limitsize = TRUE,
-        bg = "white"
-      )
-      }
-      invisible(NULL)
-    }
-  } else {
-    p <- ggplot(spectra, aes(x = x, y = y, color = file)) +
-      geom_line(linewidth = line_size) +
-      labs(x = x_label, y = y_label, color = "Spectrum") +
-      plot_theme +
-      color_scale
+        if (plot_mode == "individual") {
 
-    # x-axis scale
-    if (!is.null(x_config)) {
-            if (x_reverse) {
-                    p <- p + scale_x_reverse(
-                            limits = c(x_config[2], x_config[1]),
-                            breaks = seq(x_config[2], x_config[1], -x_config[3]),
-                            expand = expansion()
-                    )
-            } else {
-                    p <- p + scale_x_continuous(
-                            limits = x_config[1:2],
-                            breaks = seq(x_config[1], x_config[2], x_config[3]),
-                            expand = expansion()
-                    )
-            }
-    }
+                for (file_name in unique(spectra$file)) {
 
-    # y-axis scale
-    if (y_trans != "linear") {
-      p <- p + scale_y_continuous(trans = y_trans)
-    }
+                        data_sub <- filter(spectra, file == !!file_name)
 
-    if (plot_mode == "stacked") {
-      p <- p +
-        facet_wrap(~ file, ncol = 1, scales = "free_y") +
-        theme(
-          panel.border = element_blank(),
-          axis.line = element_line(colour = "black", linewidth = 0.25),
-          axis.text.y = element_blank(),
-          axis.ticks.y = element_blank(),
-          panel.spacing = unit(0, "mm"),            # Remove spacing between facets
-          strip.background = element_blank(),       # Remove gray title bars
-          strip.text = element_blank()              # Remove text in the facets
-        )
-    }
-    if (!is.null(vertical_lines)) {
-      for (v in vertical_lines) p <- p + geom_vline(xintercept = v, linetype = "dashed", color = "grey30")
-    }
-    if (!is.null(shaded_ROIs)) {
-      for (roi in shaded_ROIs) p <- p + annotate("rect", xmin = roi[1], xmax = roi[2], ymin = -Inf, ymax = Inf, alpha = 0.2, fill = "grey55")
-    }
-    if (!is.null(annotations)) {
-      p <- p + geom_text(data = annotations, aes(x = x, y = y, label = label), inherit.aes = FALSE)
-    }
+                        p <- ggplot(data_sub, aes(x = x, y = y)) +
+                                geom_line(
+                                        linewidth = line_size,
+                                        color = if (length(palette) == 1 && palette != "Dark2") palette else "black"
+                                ) +
+                                labs(
+                                        x = x_label,
+                                        y = y_label,
+                                        title = if (display_names) file_name else NULL
+                                ) +
+                                plot_theme
 
-    if (!is.null(output_folder)) {
-    ggsave(
-      filename = paste0("Combined_Spectra_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".", output_format),
-      plot = p,
-      device = output_format,
-      path = output_folder,
-      scale = 1,
-      width = 15,
-      height = 9.3,
-      units = "cm",
-      dpi = 300,
-      limitsize = TRUE,
-      bg = "white"
-    )
-    }
-    invisible(NULL)
-  }
+                        if (!is.null(x_config)) {
+                                if (x_reverse) {
+                                        p <- p + scale_x_reverse(
+                                                limits = c(x_config[2], x_config[1]),
+                                                breaks = seq(x_config[2], x_config[1], -x_config[3]),
+                                                expand = expansion()
+                                        )
+                                } else {
+                                        p <- p + scale_x_continuous(
+                                                limits = x_config[1:2],
+                                                breaks = seq(x_config[1], x_config[2], x_config[3]),
+                                                expand = expansion()
+                                        )
+                                }
+                        }
+
+                        if (y_trans != "linear") {
+                                p <- p + scale_y_continuous(trans = y_trans)
+                        }
+
+                        if (!is.null(vertical_lines)) {
+                                for (v in vertical_lines)
+                                        p <- p + geom_vline(xintercept = v, linetype = "dashed", color = "grey30")
+                        }
+
+                        if (!is.null(shaded_ROIs)) {
+                                for (roi in shaded_ROIs)
+                                        p <- p + annotate(
+                                                "rect",
+                                                xmin = roi[1], xmax = roi[2],
+                                                ymin = -Inf, ymax = Inf,
+                                                alpha = 0.2, fill = "grey55"
+                                        )
+                        }
+
+                        if (!is.null(annotations)) {
+                                ann_sub <- filter(annotations, file == !!file_name)
+                                if (nrow(ann_sub) > 0) {
+                                        p <- p + geom_text(
+                                                data = ann_sub,
+                                                aes(x = x, y = y, label = label),
+                                                inherit.aes = FALSE
+                                        )
+                                }
+                        }
+
+                        if (!is.null(output_folder)) {
+                                ggsave(
+                                        filename = paste0(
+                                                tools::file_path_sans_ext(file_name), "_",
+                                                format(Sys.time(), "%Y%m%d_%H%M%S"), ".", output_format
+                                        ),
+                                        plot = p,
+                                        device = output_format,
+                                        path = output_folder,
+                                        width = 15,
+                                        height = 9.3,
+                                        units = "cm",
+                                        dpi = 300,
+                                        bg = "white"
+                                )
+                        }
+
+                        # Store each plot in the list
+                        p_out[[file_name]] <- p
+                }
+
+        } else {
+
+                p <- ggplot(spectra, aes(x = x, y = y, color = file)) +
+                        geom_line(linewidth = line_size) +
+                        labs(x = x_label, y = y_label, color = "Spectrum") +
+                        plot_theme +
+                        color_scale
+
+                if (!is.null(x_config)) {
+                        if (x_reverse) {
+                                p <- p + scale_x_reverse(
+                                        limits = c(x_config[2], x_config[1]),
+                                        breaks = seq(x_config[2], x_config[1], -x_config[3]),
+                                        expand = expansion()
+                                )
+                        } else {
+                                p <- p + scale_x_continuous(
+                                        limits = x_config[1:2],
+                                        breaks = seq(x_config[1], x_config[2], x_config[3]),
+                                        expand = expansion()
+                                )
+                        }
+                }
+
+                if (y_trans != "linear") {
+                        p <- p + scale_y_continuous(trans = y_trans)
+                }
+
+                if (plot_mode == "stacked") {
+                        p <- p +
+                                facet_wrap(~ file, ncol = 1, scales = "free_y") +
+                                theme(
+                                        panel.border = element_blank(),
+                                        axis.line = element_line(colour = "black", linewidth = 0.25),
+                                        axis.text.y = element_blank(),
+                                        axis.ticks.y = element_blank(),
+                                        panel.spacing = unit(0, "mm"),
+                                        strip.background = element_blank(),
+                                        strip.text = element_blank()
+                                )
+                }
+
+                if (!is.null(vertical_lines)) {
+                        for (v in vertical_lines)
+                                p <- p + geom_vline(xintercept = v, linetype = "dashed", color = "grey30")
+                }
+
+                if (!is.null(shaded_ROIs)) {
+                        for (roi in shaded_ROIs)
+                                p <- p + annotate(
+                                        "rect",
+                                        xmin = roi[1], xmax = roi[2],
+                                        ymin = -Inf, ymax = Inf,
+                                        alpha = 0.2, fill = "grey55"
+                                )
+                }
+
+                if (!is.null(annotations)) {
+                        p <- p + geom_text(
+                                data = annotations,
+                                aes(x = x, y = y, label = label),
+                                inherit.aes = FALSE
+                        )
+                }
+
+                if (!is.null(output_folder)) {
+                        ggsave(
+                                filename = paste0(
+                                        "Combined_Spectra_",
+                                        format(Sys.time(), "%Y%m%d_%H%M%S"), ".", output_format
+                                ),
+                                plot = p,
+                                device = output_format,
+                                path = output_folder,
+                                width = 15,
+                                height = 9.3,
+                                units = "cm",
+                                dpi = 300,
+                                bg = "white"
+                        )
+                }
+
+                p_out <- p
+        }
+
+        if (!is.null(output_folder)) {
+                invisible(NULL)
+        } else {
+                return(p_out)
+        }
 }

@@ -19,7 +19,7 @@
 #' @param normalization Character. Normalization method to apply to spectra. One of `"none"`, `"simple"` (divide by max), `"min-max"`, or `"z-score"`. Default is `"none"`.
 #' @param orientation Character. Output orientation. Use `"columns"` (default) to keep each spectrum as a column, or `"rows"` to transpose so each spectrum is a row.
 #'
-#' @return A `tibble` that can be exported as, for example, a CSV file. Each spectrum is either a column (default) or row, depending on `orientation`. The common column (e.g., wavelength) is retained.
+#' @return A `tibble` that can be exported as, for example, a CSV file. Each spectrum is either a column (default) or row, depending on `orientation`; a sum or mean spectrum can optionally be computed using `rowSums()` or `colSums()`, or `rowMeans()` or `colMeans()`, respectively. The common column (e.g., wavelength) is retained.
 #'
 #' @examples
 #' # Create a temporary directory for mock CSV files
