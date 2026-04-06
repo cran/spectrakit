@@ -10,6 +10,7 @@ plotSpectra(
   sep = ",",
   header = TRUE,
   normalization = c("none", "simple", "min-max", "z-score", "area", "vector"),
+  norm_scope = c("global", "range"),
   x_config = NULL,
   x_reverse = FALSE,
   y_trans = c("linear", "log10", "sqrt"),
@@ -27,7 +28,7 @@ plotSpectra(
 )
 }
 \arguments{
-\item{folder}{Character. Path to the folder containing spectral files. Default is working directory (`"."`).}
+\item{folder}{Character. Path to the folder containing spectra files. Default is `"."` (working directory).}
 
 \item{file_type}{Character. File extension (without dot) to search for. Default is `"csv"`.}
 
@@ -35,46 +36,49 @@ plotSpectra(
 
 \item{header}{Logical. Whether the files contain a header row. Default is `TRUE`.}
 
-\item{normalization}{Character. Normalization method to apply to y-axis data. Options are:
+\item{normalization}{Character. Normalization method to apply to y-axis data. One of:
 \describe{
   \item{`"none"`}{No normalization is applied (default).}
   \item{`"simple"`}{Divide by the maximum intensity.}
   \item{`"min-max"`}{Scale intensities to the [0,1] range.}
   \item{`"z-score"`}{Subtract the mean and divide by the standard deviation of intensities.}
   \item{`"area"`}{Divide by the total sum of intensities so the spectrum area = 1.}
-  \item{`"vector"`}{Normalize the spectrum as a unit vector by dividing by the square root of the sum of squared intensities (L2 normalization).}
+  \item{`"vector"`}{Normalize the spectrum as a unit vector by dividing by the square root of the sum of squared intensities; also known as L2 normalization.}
 }}
 
-\item{x_config}{Numeric vector of length 3. Specifies x-axis range and breaks: `c(min, max, step)`.}
+\item{norm_scope}{Character. Determines whether normalization is applied to the full spectrum or only to a specified range. One of: `"global"` (full spectrum), or `"range"` (specified range). Default is `"global"`.}
+
+\item{x_config}{Numeric vector of length 3. Specifies x-axis range and breaks: `c(min, max, step)`.
+If `NULL` (default), the full data range is used and axis breaks are set every 100 units.}
 
 \item{x_reverse}{Logical. If `TRUE`, reverses the x-axis. Default is `FALSE`.}
 
-\item{y_trans}{Character. Transformation for the y-axis. One of `"linear"`, `"log10"`, or `"sqrt"`. Default is `"linear"`.}
+\item{y_trans}{Character. Transformation for the y-axis. One of: `"linear"`, `"log10"`, or `"sqrt"`. Default is `"linear"`.}
 
-\item{x_label}{Character or expression. Label for the x-axis. Supports mathematical notation via `expression()`.}
+\item{x_label}{Character or expression. Label for the x-axis. Supports mathematical notation via `expression()`, e.g., \code{expression(Wavenumber~(cm^{-1}))}. Default is `NULL` (no axis label).}
 
-\item{y_label}{Character or expression. Label for the y-axis. Supports mathematical notation via `expression()`.}
+\item{y_label}{Character or expression. Label for the y-axis. Supports mathematical notation via `expression()`, e.g., \code{expression(Delta*E["00"]^{"*"})}. Default is `NULL` (no axis label).}
 
 \item{line_size}{Numeric. Width of the spectral lines. Default is `0.5`.}
 
-\item{palette}{Character or vector. Color setting: a single color (e.g., `"black"`), a ColorBrewer palette name (e.g., `"Dark2"`), or a custom color vector.}
+\item{palette}{Character or vector. Color setting. One of: a single color (e.g., `"black"`), a ColorBrewer palette name (e.g., `"Dark2"`; requires the package to be installed), or a custom color vector. Default is `"black"`.}
 
-\item{plot_mode}{Character. Plotting style. One of `"individual"` (one plot per spectrum), `"overlapped"` (all in one), or `"stacked"` (faceted). Default is `"individual"`.}
+\item{plot_mode}{Character. Plotting style. One of `"individual"` (one plot per spectrum), `"overlapped"` (all in one), or `"stacked"` (vertically offset). Default is `"individual"`.}
 
 \item{display_names}{Logical. If `TRUE`, adds file names as titles to individual spectra or a legend to combined spectra. Default is `FALSE`.}
 
-\item{vertical_lines}{Numeric vector. Adds vertical dashed lines at given x positions.}
+\item{vertical_lines}{Numeric vector. Adds vertical dashed lines at given x positions. Default is `NULL`.}
 
-\item{shaded_ROIs}{List of numeric vectors. Each vector must have two elements (`xmin`, `xmax`) to define shaded x regions.}
+\item{shaded_ROIs}{List of numeric vectors. Each vector must have two elements (`xmin`, `xmax`) to define shaded x regions. Default is `NULL`.}
 
-\item{annotations}{Data frame with columns `file` (file name without extension), `x`, `y`, and `label`. Adds annotation labels to specific points in spectra.}
+\item{annotations}{Data frame with columns `file` (file name without extension), `x`, `y`, and `label`. Adds annotation labels to specific points in spectra. Default is `NULL`.}
 
 \item{output_format}{Character. File format for saving plots. Examples: `"tiff"`, `"png"`, `"pdf"`. Default is `"tiff"`.}
 
-\item{output_folder}{Character. Path to folder where plots are saved. If NULL (default), plots are not saved; if `"."`, plots are saved in the working directory.}
+\item{output_folder}{Character. Path to folder where plots are saved. If NULL (default), plots are not saved and the ggplot object is returned. If specified, plots are saved automatically; if `"."`, plots are saved in the working directory.}
 }
 \value{
-Saves plots to a specified output folder. Returns `NULL` (used for side-effects).
+If `output_folder = NULL`, the function returns a `ggplot` object. Otherwise, returns `NULL` invisibly after saving the plots to a specified output folder.
 }
 \description{
 Reads, normalizes and plots spectral data from files in a folder. Supports multiple plot modes, color palettes, axis customization, annotations and automatic saving of plots to files.
@@ -108,7 +112,7 @@ plotSpectra(
   vertical_lines = c(10, 20),
   shaded_ROIs = list(c(12, 14), c(18, 22)),
   output_format = "png",
-  output_folder = tmp_dir
+  output_folder = NULL
 )
 
 }

@@ -2,18 +2,20 @@
 % Please edit documentation in R/plotPCA.R
 \name{plotPCA}
 \alias{plotPCA}
-\title{Perform PCA and Create a Plot of Scores, Loadings, or Biplot}
+\title{Perform PCA and Create a Plot of Scores, Loadings, or Biplot for Selected Principal Components}
 \usage{
 plotPCA(
   data,
+  pcs = c(1, 2),
   color_var = NULL,
   shape_var = NULL,
-  plot_type = c("score", "loadings", "biplot"),
+  plot_type = c("score", "loading", "biplot", "cumvar"),
   palette = "Dark2",
-  show_labels = TRUE,
+  score_labels = TRUE,
+  loading_labels = TRUE,
   ellipses = FALSE,
   ellipse_var = NULL,
-  display_names = TRUE,
+  display_names = FALSE,
   legend_title = NULL,
   return_pca = FALSE,
   output_format = "tiff",
@@ -21,55 +23,73 @@ plotPCA(
 )
 }
 \arguments{
-\item{data}{A data frame containing numeric variables. Non-numeric columns are ignored.}
+\item{data}{Data frame containing numeric variables. Numeric variables are centered and scaled by default; non-numeric columns are ignored. Argument is required.}
 
-\item{color_var}{Optional character. Column name for coloring points by group. Converted to factor internally.}
+\item{pcs}{Numeric vector of length 2. Indicates which principal components to plot. Default is c(1, 2).}
 
-\item{shape_var}{Optional character. Column name for shaping points by group. Converted to factor internally.}
+\item{color_var}{Character. Column name for coloring points by group; converted to factor internally. Default is `NULL` (all points same color).}
 
-\item{plot_type}{Character. Type of PCA plot to generate:
+\item{shape_var}{Character. Column name for shaping points by group; converted to factor internally. Default is `NULL` (all points same shape).}
+
+\item{plot_type}{Character. Type of PCA plot to generate. One of:
 \describe{
-  \item{`"score"`}{Plot PCA scores (observations).}
-  \item{`"loadings"`}{Plot PCA loadings (variables).}
+  \item{`"score"`}{Plot PCA scores, i.e., observations (default).}
+  \item{`"loading"`}{Plot PCA loadings, i.e., variables.}
   \item{`"biplot"`}{Combine scores and loadings in a biplot.}
+  \item{`"cumvar"`}{Plot cumulative variance explained across principal components.}
 }}
 
-\item{palette}{Character or vector. Color palette for groups:
-\describe{
-  \item{`"Dark2"`}{Use Dark2 palette from RColorBrewer (requires the package).}
-  \item{single color}{A single color repeated for all groups.}
-  \item{vector of colors}{Custom vector of colors, recycled to match number of groups.}
-}}
-
-\item{show_labels}{Logical. Display labels for points (scores) or variables (loadings). Default is TRUE.}
-
-\item{ellipses}{Logical. Draw confidence ellipses around groups in score/biplot. Grouping logic for ellipses follows this priority:
+\item{palette}{Character or vector. Color setting for groups. One of:
 \itemize{
-  \item If \code{ellipse_var} is provided, ellipses are drawn by that variable.
-  \item Else, if \code{color_var} is provided, ellipses are drawn by color groups.
-  \item Else, if \code{shape_var} is provided, ellipses are drawn by shape groups.
-  \item If none are provided, no ellipses are drawn.
+        \item A single color repeated for all groups.
+        \item A ColorBrewer palette name (default is `"Dark2"`; requires the package to be installed).
+        \item A custom color vector, recycled to match the number of groups.
+}}
+
+\item{score_labels}{Logical or character. Controls labeling of points (scores). One of:
+\describe{
+        \item{TRUE}{Uses row names for labels (default).}
+        \item{column name}{Uses a column in the data frame for labels.}
+        \item{FALSE}{No labels are shown.}
+}}
+
+\item{loading_labels}{Logical. If `TRUE`, displays labels for variables (loadings). Default is TRUE.}
+
+\item{ellipses}{Logical. If `TRUE`, draws confidence ellipses around groups in score/biplot. Grouping logic for ellipses follows this priority:
+\describe{
+  \item{ellipse_var}{
+    If provided, ellipses are drawn by that variable.
+  }
+  \item{color_var}{
+    If \code{ellipse_var} is not provided, ellipses are drawn by color groups.
+  }
+  \item{shape_var}{
+    If neither \code{ellipse_var} nor \code{color_var} is provided, ellipses are drawn by shape groups.
+  }
+  \item{none}{
+    If none are provided, no ellipses are drawn.
+  }
 }
 Default is FALSE.}
 
-\item{ellipse_var}{Optional character. Name of the variable used to group ellipses. Takes precedence over all other grouping variables. Converted to factor internally. Default is NULL.}
+\item{ellipse_var}{Character. Name of the variable used to group ellipses. Takes precedence over all other grouping variables; converted to factor internally. Default is NULL.}
 
-\item{display_names}{Logical. Show legend if TRUE. Default is TRUE.}
+\item{display_names}{Logical. Shows legend if TRUE. Default is FALSE.}
 
-\item{legend_title}{Optional character. Legend title corresponding to `color_var` or `shape_var`. Default is NULL.}
+\item{legend_title}{Character. Legend title corresponding to `color_var` and/or `shape_var`. Default is NULL.}
 
 \item{return_pca}{Logical. If TRUE, return a list with plot and PCA object. Default is FALSE.}
 
 \item{output_format}{Character. File format for saving plots. Examples: `"tiff"`, `"png"`, `"pdf"`. Default is `"tiff"`.}
 
-\item{output_folder}{Character. Path to folder where plots are saved. If NULL (default), returns a ggplot object (or list with plot and PCA if `return_pca = TRUE`). If specified, plot is saved automatically (function returns PCA object only if `return_pca = TRUE`); if `"."`, plot is saved in the working directory.}
+\item{output_folder}{Character. Path to folder where plots are saved. If NULL (default), plot is not saved and the ggplot object (or list with plot and PCA if `return_pca = TRUE`) is returned. If specified, plot is saved automatically (function returns PCA object only if `return_pca = TRUE`); if `"."`, plot is saved in the working directory.}
 }
 \value{
 A ggplot2 object representing the PCA plot, or a list with `plot` and `pca` if `return_pca = TRUE`.
 }
 \description{
 Computes principal component analysis (PCA) on numeric variables in a dataset
-and generates a PC1 vs PC2 visualization (scores, loadings, or biplot).
+and generates a plot of two selected principal components (scores, loadings, or biplot).
 }
 \examples{
 plotPCA(
@@ -78,7 +98,6 @@ plotPCA(
   shape_var = "Species",
   plot_type = "biplot",
   palette = "Dark2",
-  show_labels = TRUE,
   ellipses = FALSE,
   display_names = TRUE,
   legend_title = "Iris Species"

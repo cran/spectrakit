@@ -10,39 +10,40 @@
 #' @importFrom magick image_read image_info image_resize image_annotate image_join image_append image_blank image_border image_write
 #' @importFrom glue glue
 #'
-#' @param folder Character. Path to the folder containing images. Default is working directory (`"."`).
-#' @param custom_order Character vector. Set of filenames (use NA for blank slots).
-#' @param rows Integer. Number of rows in the grid.
-#' @param cols Integer. Number of columns in the grid.
+#' @param folder Character. Path to the folder containing images. Default is `"."` (working directory).
+#' @param custom_order Character vector. Ordered set of filenames (use NA for blank slots). Argument is required.
+#' @param rows Integer. Number of rows in the grid. Argument is required.
+#' @param cols Integer. Number of columns in the grid. Argument is required.
 #' @param spacing Integer. Spacing (in pixels) between tiles. Default is `15`
-#' @param resize_mode Character. Method to resize panels in the composite. Options are:
+#' @param resize_mode Character. Method to resize panels in the composite. One of:
 #'   \describe{
-#'     \item{`"none"`}{Keep each panel at its original size.}
-#'     \item{`"fit"`}{Scale each panel to fit within the smallest image dimensions, preserving aspect ratio.}
-#'     \item{`"fill"`}{Scale and crop each panel to exactly fill the smallest dimensions.}
-#'     \item{`"width"`}{Resize each panel to the minimum width, keeping the original height.}
-#'     \item{`"height"`}{Resize each panel to the minimum height, keeping the original width.}
-#'     \item{`"both"`}{Force panels to the exact width and height, which may distort aspect ratio.}
+#'     \item{`"none"`}{Keeps each panel at its original size (default).}
+#'     \item{`"fit"`}{Scales each panel to fit within the smallest width and height among all images, preserving aspect ratio; no cropping occurs, empty space may remain.}
+#'     \item{`"fill"`}{Scales each panel to completely cover the smallest width and height among all images, preserving aspect ratio, then crops any excess.}
+#'     \item{`"width"`}{Resizes each panel to match the minimum width among all images, preserving aspect ratio; height scales accordingly.}
+#'     \item{`"height"`}{Resizes each panel to match the minimum height among all images, preserving aspect ratio; width scales accordingly.}
+#'     \item{`"both"`}{Resizes each panel to exactly match the minimum width and height among all images, without preserving aspect ratio; may cause distortion.}
 #'   }
-#' @param labels List of up to 4 character vectors. Each vector corresponds to one label layer and must be the same length as the number of non-NA images. Use empty strings "" or NULL entries to omit specific labels.
-#' @param label_settings List of named lists. Each named list specifies settings for a label layer. Options include:
+#' @param labels List of up to 4 character vectors. Labels to apply to each panel. Each vector corresponds to one label layer and must be the same length as the number of non-NA images. Use empty strings "" or NULL entries to omit specific labels. Default is `list()` (no labels).
+#' @param label_settings List of named lists. Each named list specifies styling options for a label layer. Options include:
 #'   \describe{
-#'     \item{`size`}{Font size (e.g., 100).}
-#'     \item{`color`}{Font color.}
+#'     \item{`size`}{Font size (e.g., `100`).}
+#'     \item{`color`}{Font color (e.g., `"black"`.}
 #'     \item{`font`}{Font family (e.g., `"Arial"`).}
-#'     \item{`boxcolor`}{Background color behind text, or `NA` for none.}
+#'     \item{`boxcolor`}{Background color behind text (e.g., `"white"`), or `NA` for none.}
 #'     \item{`location`}{Offset from the gravity anchor (e.g., `"+10+10"`).}
 #'     \item{`gravity`}{Placement anchor for the label (e.g., `"northwest"`).}
 #'     \item{`weight`}{Font weight (e.g., `400` = normal, `700` = bold).}
 #'   }
+#'   Default is `list()` (default styling is used).
 #' @param background_color Character. Background color used for blank tiles and borders. Use `"none"` for transparency. Default is `"white"`.
-#' @param desired_width Numeric. Desired width of final image (in cm or px). Default is `15`
-#' @param width_unit Character. Either "cm" or "px". Default is `"cm"`
+#' @param desired_width Numeric. Desired width of final image (in centimeters, inches or pixels). Default is `15`
+#' @param width_unit Character. One of: `"cm"`, `"in"`, or `"px"`. Default is `"cm"`
 #' @param ppi Numeric. Resolution (pixels per inch) for output file. Default is `300`
-#' @param output_format Character. File format for saving plots. Examples: `"tiff"`, `"png"`, `"pdf"`. Default is `"tiff"`.
-#' @param output_folder Character. Path to folder where image is saved. If NULL (default), image is not saved; if `"."`, image is saved in the working directory.
+#' @param output_format Character. File format for saving image. Examples: `"tiff"`, `"png"`, `"pdf"`. Default is `"tiff"`.
+#' @param output_folder Character. Path to folder where the composite image is saved. If NULL (default), the image is not saved and a `magick image` object is returned; If specified, the image is saved automatically; if `"."`, the image is saved in the working directory.
 #'
-#' @return Saves image composite to a specified output folder. Returns `NULL` (used for side-effects).
+#' @return If `output_folder = NULL`, the function returns a `magick image` object. When `output_folder` is specified, the composite image is written directly to disk and returned invisibly.
 #'
 #' @examples
 #' library(magick)
@@ -90,9 +91,9 @@
 #' @export
 makeComposite <- function(
                 folder = ".",
-                custom_order = NULL,
-                rows = NULL,
-                cols = NULL,
+                custom_order,
+                rows,
+                cols,
                 spacing = 15,
                 resize_mode = c("none", "fit", "fill", "width", "height", "both"),
                 labels = list(),
@@ -195,22 +196,32 @@ makeComposite <- function(
 
         # Resize output
         desired_width_px <- if (width_unit == "cm") {
-                round(desired_width * ppi / 2.54)
-        } else {
-                desired_width
-        }
+    		round(desired_width * ppi / 2.54)
+	  } else if (width_unit == "in") {
+    		round(desired_width * ppi)
+	  } else {
+    		desired_width
+	  }
 
         composite_resized <- image_resize(composite, paste0(desired_width_px, "x"))
 
         if (!is.null(output_folder)) {
-                output_file <- file.path(output_folder, paste0("Composite_Image_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".", output_format))
+                output_file <- file.path(
+                        output_folder,
+                        paste0("Composite_Image_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".", output_format)
+                )
+
                 image_write(
                         composite_resized,
                         path = output_file,
                         format = output_format,
                         density = paste0(ppi, "x", ppi)
                 )
+
                 message("Composite saved to: ", output_file)
+
+                return(invisible(composite_resized))
+        } else {
+                return(composite_resized)
         }
-        invisible(NULL)
 }

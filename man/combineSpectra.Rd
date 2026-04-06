@@ -12,12 +12,13 @@ combineSpectra(
   common_col_pos = 1,
   data_col_pos = 2,
   range = NULL,
-  normalization = c("none", "simple", "min-max", "z-score"),
+  normalization = c("none", "simple", "min-max", "z-score", "area", "vector"),
+  norm_scope = c("global", "range"),
   orientation = c("columns", "rows")
 )
 }
 \arguments{
-\item{folder}{Character. Path to the folder containing spectral files. Default is working directory (`"."`).}
+\item{folder}{Character. Path to the folder containing spectra files. Default is `"."` (working directory).}
 
 \item{file_type}{Character. File extension (without dot) to search for. Default is `"csv"`.}
 
@@ -25,15 +26,25 @@ combineSpectra(
 
 \item{header}{Logical. Whether the files contain a header row. Default is `TRUE`.}
 
-\item{common_col_pos}{Integer. Column position for the common variable (e.g., wavelength). Defaults to `1`.}
+\item{common_col_pos}{Integer. Column position for the common variable (e.g., wavelength). Default is `1`.}
 
-\item{data_col_pos}{Integer. Column position for the spectral intensity values. Defaults to `2`.}
+\item{data_col_pos}{Integer. Column position for the spectral intensity values. Default is `2`.}
 
-\item{range}{Numeric vector of length 2. Optional range filter for the common column (e.g., wavelength limits). Defaults to `NULL` (no filtering).}
+\item{range}{Numeric vector of length 2. Range filter for the common column (e.g., wavelength limits). Default is `NULL` (no filtering).}
 
-\item{normalization}{Character. Normalization method to apply to spectra. One of `"none"`, `"simple"` (divide by max), `"min-max"`, or `"z-score"`. Default is `"none"`.}
+\item{normalization}{Character. Normalization method to apply to intensity values. One of:
+\describe{
+  \item{`"none"`}{No normalization is applied (default).}
+  \item{`"simple"`}{Divide by the maximum intensity.}
+  \item{`"min-max"`}{Scale intensities to the [0,1] range.}
+  \item{`"z-score"`}{Subtract the mean and divide by the standard deviation of intensities.}
+  \item{`"area"`}{Divide by the total sum of intensities so the spectrum area = 1.}
+  \item{`"vector"`}{Normalize the spectrum as a unit vector by dividing by the square root of the sum of squared intensities; also known as L2 normalization.}
+}}
 
-\item{orientation}{Character. Output orientation. Use `"columns"` (default) to keep each spectrum as a column, or `"rows"` to transpose so each spectrum is a row.}
+\item{norm_scope}{Character. Determines whether normalization is applied to the full spectrum or only to a specified range. One of: `"global"` (full spectrum), or `"range"` (specified range). Default is `"global"`.}
+
+\item{orientation}{Character. Output organization. One of: `"columns"`, to keep each spectrum as a column, or `"rows"`, to transpose so each spectrum is a row. Default is `"columns"`.}
 }
 \value{
 A `tibble` that can be exported as, for example, a CSV file. Each spectrum is either a column (default) or row, depending on `orientation`; a sum or mean spectrum can optionally be computed using `rowSums()` or `colSums()`, or `rowMeans()` or `colMeans()`, respectively. The common column (e.g., wavelength) is retained.

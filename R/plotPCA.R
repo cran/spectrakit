@@ -1,41 +1,57 @@
 # Fix global variables first (no roxygen needed)
-if (getRversion() >= "2.15.1") utils::globalVariables(c(".data", "PC1", "PC2", "varname"))
+if (getRversion() >= "2.15.1") utils::globalVariables(c(".data", "varname", "PC", "Cumulative", "ylim"))
 
-#' Perform PCA and Create a Plot of Scores, Loadings, or Biplot
+#' Perform PCA and Create a Plot of Scores, Loadings, or Biplot for Selected Principal Components
 #'
 #' Computes principal component analysis (PCA) on numeric variables in a dataset
-#' and generates a PC1 vs PC2 visualization (scores, loadings, or biplot).
+#' and generates a plot of two selected principal components (scores, loadings, or biplot).
 #'
-#' @param data A data frame containing numeric variables. Non-numeric columns are ignored.
-#' @param color_var Optional character. Column name for coloring points by group. Converted to factor internally.
-#' @param shape_var Optional character. Column name for shaping points by group. Converted to factor internally.
-#' @param plot_type Character. Type of PCA plot to generate:
+#' @param data Data frame containing numeric variables. Numeric variables are centered and scaled by default; non-numeric columns are ignored. Argument is required.
+#' @param pcs Numeric vector of length 2. Indicates which principal components to plot. Default is c(1, 2).
+#' @param color_var Character. Column name for coloring points by group; converted to factor internally. Default is `NULL` (all points same color).
+#' @param shape_var Character. Column name for shaping points by group; converted to factor internally. Default is `NULL` (all points same shape).
+#' @param plot_type Character. Type of PCA plot to generate. One of:
 #'   \describe{
-#'     \item{`"score"`}{Plot PCA scores (observations).}
-#'     \item{`"loadings"`}{Plot PCA loadings (variables).}
+#'     \item{`"score"`}{Plot PCA scores, i.e., observations (default).}
+#'     \item{`"loading"`}{Plot PCA loadings, i.e., variables.}
 #'     \item{`"biplot"`}{Combine scores and loadings in a biplot.}
+#'     \item{`"cumvar"`}{Plot cumulative variance explained across principal components.}
 #'   }
-#' @param palette Character or vector. Color palette for groups:
-#'   \describe{
-#'     \item{`"Dark2"`}{Use Dark2 palette from RColorBrewer (requires the package).}
-#'     \item{single color}{A single color repeated for all groups.}
-#'     \item{vector of colors}{Custom vector of colors, recycled to match number of groups.}
-#'   }
-#' @param show_labels Logical. Display labels for points (scores) or variables (loadings). Default is TRUE.
-#' @param ellipses Logical. Draw confidence ellipses around groups in score/biplot. Grouping logic for ellipses follows this priority:
+#' @param palette Character or vector. Color setting for groups. One of:
 #' \itemize{
-#'   \item If \code{ellipse_var} is provided, ellipses are drawn by that variable.
-#'   \item Else, if \code{color_var} is provided, ellipses are drawn by color groups.
-#'   \item Else, if \code{shape_var} is provided, ellipses are drawn by shape groups.
-#'   \item If none are provided, no ellipses are drawn.
+#'         \item A single color repeated for all groups.
+#'         \item A ColorBrewer palette name (default is `"Dark2"`; requires the package to be installed).
+#'         \item A custom color vector, recycled to match the number of groups.
+#' }
+#' @param score_labels Logical or character. Controls labeling of points (scores). One of:
+#' \describe{
+#'         \item{TRUE}{Uses row names for labels (default).}
+#'         \item{column name}{Uses a column in the data frame for labels.}
+#'         \item{FALSE}{No labels are shown.}
+#' }
+#' @param loading_labels Logical. If `TRUE`, displays labels for variables (loadings). Default is TRUE.
+#' @param ellipses Logical. If `TRUE`, draws confidence ellipses around groups in score/biplot. Grouping logic for ellipses follows this priority:
+#' \describe{
+#'   \item{ellipse_var}{
+#'     If provided, ellipses are drawn by that variable.
+#'   }
+#'   \item{color_var}{
+#'     If \code{ellipse_var} is not provided, ellipses are drawn by color groups.
+#'   }
+#'   \item{shape_var}{
+#'     If neither \code{ellipse_var} nor \code{color_var} is provided, ellipses are drawn by shape groups.
+#'   }
+#'   \item{none}{
+#'     If none are provided, no ellipses are drawn.
+#'   }
 #' }
 #' Default is FALSE.
-#' @param ellipse_var Optional character. Name of the variable used to group ellipses. Takes precedence over all other grouping variables. Converted to factor internally. Default is NULL.
-#' @param display_names Logical. Show legend if TRUE. Default is TRUE.
-#' @param legend_title Optional character. Legend title corresponding to `color_var` or `shape_var`. Default is NULL.
+#' @param ellipse_var Character. Name of the variable used to group ellipses. Takes precedence over all other grouping variables; converted to factor internally. Default is NULL.
+#' @param display_names Logical. Shows legend if TRUE. Default is FALSE.
+#' @param legend_title Character. Legend title corresponding to `color_var` and/or `shape_var`. Default is NULL.
 #' @param return_pca Logical. If TRUE, return a list with plot and PCA object. Default is FALSE.
 #' @param output_format Character. File format for saving plots. Examples: `"tiff"`, `"png"`, `"pdf"`. Default is `"tiff"`.
-#' @param output_folder Character. Path to folder where plots are saved. If NULL (default), returns a ggplot object (or list with plot and PCA if `return_pca = TRUE`). If specified, plot is saved automatically (function returns PCA object only if `return_pca = TRUE`); if `"."`, plot is saved in the working directory.
+#' @param output_folder Character. Path to folder where plots are saved. If NULL (default), plot is not saved and the ggplot object (or list with plot and PCA if `return_pca = TRUE`) is returned. If specified, plot is saved automatically (function returns PCA object only if `return_pca = TRUE`); if `"."`, plot is saved in the working directory.
 #'
 #' @return A ggplot2 object representing the PCA plot, or a list with `plot` and `pca` if `return_pca = TRUE`.
 #'
@@ -46,7 +62,6 @@ if (getRversion() >= "2.15.1") utils::globalVariables(c(".data", "PC1", "PC2", "
 #'   shape_var = "Species",
 #'   plot_type = "biplot",
 #'   palette = "Dark2",
-#'   show_labels = TRUE,
 #'   ellipses = FALSE,
 #'   display_names = TRUE,
 #'   legend_title = "Iris Species"
@@ -57,14 +72,16 @@ if (getRversion() >= "2.15.1") utils::globalVariables(c(".data", "PC1", "PC2", "
 #' @importFrom ggrepel geom_text_repel
 #' @export
 plotPCA <- function(data,
+                    pcs = c(1, 2),
                     color_var = NULL,
                     shape_var = NULL,
-                    plot_type = c("score", "loadings", "biplot"),
+                    plot_type = c("score", "loading", "biplot", "cumvar"),
                     palette = "Dark2",
-                    show_labels = TRUE,
+                    score_labels = TRUE,
+                    loading_labels = TRUE,
                     ellipses = FALSE,
                     ellipse_var = NULL,
-                    display_names = TRUE,
+                    display_names = FALSE,
                     legend_title = NULL,
                     return_pca = FALSE,
                     output_format = "tiff",
@@ -92,6 +109,27 @@ plotPCA <- function(data,
         # --- PCA ---
         pca <- prcomp(numeric_data, scale. = TRUE)
         eig_vals <- (pca$sdev^2) / sum(pca$sdev^2) * 100
+        cum_var <- cumsum(eig_vals)
+        n_pc_95 <- which(cum_var >= 95)[1]
+        n_pc_99 <- which(cum_var >= 99)[1]
+
+        # --- Validate and clean pcs ---
+        if (length(pcs) != 2)
+                stop("`pcs` must be a numeric vector of length 2 (e.g., c(1,2)).")
+
+        if (!is.numeric(pcs))
+                stop("`pcs` must be numeric.")
+
+        pcs <- unique(pcs)
+
+        if (length(pcs) != 2)
+                stop("`pcs` must contain two different PC indices.")
+
+        if (any(pcs > ncol(pca$x)))
+                stop("Selected PCs exceed available components.")
+
+        if (any(pcs < 1))
+                stop("`pcs` must be positive integers.")
 
         # --- Shape settings ---
         shape_values <- c(21, 24, 22, 23, 25, 8)
@@ -115,14 +153,16 @@ plotPCA <- function(data,
         # ============================================================
         # Score plot or Biplot
         # ============================================================
+        xpc <- paste0("PC", pcs[1])
+        ypc <- paste0("PC", pcs[2])
+
         if (plot_type %in% c("score", "biplot")) {
 
-                scores <- as.data.frame(pca$x[, 1:2])
-                colnames(scores) <- c("PC1", "PC2")
+                scores <- as.data.frame(pca$x[, pcs])
+                colnames(scores) <- paste0("PC", pcs)
 
                 # --- Attach grouping variables ---
                 vars_to_add <- unique(c(color_var, shape_var, ellipse_var))
-                vars_to_add <- vars_to_add[!is.null(vars_to_add)]
                 for (v in vars_to_add) {
                         if (!v %in% colnames(data_used))
                                 stop(sprintf("`%s` not found in data.", v))
@@ -130,32 +170,34 @@ plotPCA <- function(data,
                 }
 
                 # --- Aesthetic mapping ---
-                aes_map <- aes(PC1, PC2)
+                aes_map <- aes(.data[[xpc]], .data[[ypc]])
 
                 if (!is.null(color_var) && !is.null(shape_var)) {
                         aes_map <- aes(
-                                PC1, PC2,
+                                .data[[xpc]], .data[[ypc]],
                                 fill  = .data[[color_var]],
                                 shape = .data[[shape_var]]
                         )
                 } else if (!is.null(color_var)) {
-                        aes_map <- aes(PC1, PC2, color = .data[[color_var]])
+                        aes_map <- aes(.data[[xpc]], .data[[ypc]], color = .data[[color_var]])
                 } else if (!is.null(shape_var)) {
-                        aes_map <- aes(PC1, PC2, shape = .data[[shape_var]])
+                        aes_map <- aes(.data[[xpc]], .data[[ypc]], shape = .data[[shape_var]])
                 }
 
+                geom_args <- list(
+                        size   = 3,
+                        alpha  = point_alpha,
+                        stroke = point_stroke
+                )
+                if (!is.null(shape_var)) geom_args$color <- "black"
+
                 p <- ggplot(scores, aes_map) +
-                        geom_point(
-                                size   = 3,
-                                alpha  = point_alpha,
-                                color  = "black",
-                                stroke = point_stroke
-                        ) +
+                        do.call(geom_point, geom_args) +
                         geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.4) +
                         geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.4) +
                         labs(
-                                x = paste0("PC1 (", round(eig_vals[1], 1), "%)"),
-                                y = paste0("PC2 (", round(eig_vals[2], 1), "%)")
+                                x = paste0("PC", pcs[1], " (", round(eig_vals[pcs[1]], 1), "%)"),
+                                y = paste0("PC", pcs[2], " (", round(eig_vals[pcs[2]], 1), "%)")
                         ) +
                         plot_theme
 
@@ -179,12 +221,21 @@ plotPCA <- function(data,
                                 brewer_fun <- scale_color_brewer
                         }
 
-                        if (length(palette) == 1 && palette == "Dark2") {
-                                if (!requireNamespace("RColorBrewer", quietly = TRUE))
-                                        stop("Package 'RColorBrewer' is required for palette = 'Dark2'.")
-                                p <- p + brewer_fun(palette = "Dark2")
-                        } else if (length(palette) >= 1) {
+                        if (length(palette) == 1 &&
+                            requireNamespace("RColorBrewer", quietly = TRUE) &&
+                            palette %in% rownames(RColorBrewer::brewer.pal.info)) {
+
+                                cols <- scales::brewer_pal(palette = palette)(n_groups)
+                                p <- p + scale_fun(values = cols)
+
+                        } else if (length(palette) == 1) {
+
+                                p <- p + scale_fun(values = rep(palette, n_groups))
+
+                        } else if (length(palette) > 1) {
+
                                 p <- p + scale_fun(values = rep(palette, length.out = n_groups))
+
                         } else {
                                 stop("Invalid `palette`.")
                         }
@@ -216,9 +267,21 @@ plotPCA <- function(data,
                 }
 
                 # --- Labels ---
-                if (show_labels) {
+                if (!identical(score_labels, FALSE)) {
+
+                        label_vec <-
+                                if (isTRUE(score_labels)) {
+                                        rownames(scores)
+                                } else if (is.character(score_labels) && length(score_labels) == 1) {
+                                        if (!score_labels %in% names(data_used))
+                                                stop(sprintf("Column '%s' not found in data.", score_labels))
+                                        data_used[[score_labels]]
+                                } else {
+                                        stop("`score_labels` must be TRUE, FALSE, or a column name.")
+                                }
+
                         p <- p + ggrepel::geom_text_repel(
-                                aes(label = rownames(scores)),
+                                aes(label = label_vec),
                                 color = "black",
                                 size  = 3
                         )
@@ -227,17 +290,18 @@ plotPCA <- function(data,
                 # --- Biplot loadings ---
                 if (plot_type == "biplot") {
 
-                        loadings <- as.data.frame(pca$rotation[, 1:2])
+                        loadings <- as.data.frame(pca$rotation[, pcs])
+                        colnames(loadings) <- paste0("PC", pcs)
                         loadings$varname <- rownames(loadings)
 
-                        rx <- diff(range(loadings$PC1))
-                        ry <- diff(range(loadings$PC2))
+                        rx <- diff(range(loadings[[xpc]]))
+                        ry <- diff(range(loadings[[ypc]]))
                         if (rx == 0 || ry == 0)
                                 stop("Cannot scale biplot loadings: zero variance on an axis.")
 
                         scale_fac <- min(
-                                diff(range(scores$PC1)) / rx,
-                                diff(range(scores$PC2)) / ry
+                                diff(range(scores[[xpc]])) / rx,
+                                diff(range(scores[[ypc]])) / ry
                         ) * 0.7
 
                         loadings[, 1:2] <- loadings[, 1:2] * scale_fac
@@ -245,36 +309,42 @@ plotPCA <- function(data,
                         p <- p +
                                 geom_segment(
                                         data = loadings,
-                                        aes(x = 0, y = 0, xend = PC1, yend = PC2),
+                                        aes(x = 0, y = 0,
+                                            xend = .data[[xpc]],
+                                            yend = .data[[ypc]]),
                                         arrow = arrow(length = unit(0.2, "cm")),
                                         inherit.aes = FALSE,
                                         color = "black"
-                                ) +
-                                geom_text(
+                                )
+                        if (loading_labels) {
+                                p <- p + geom_text(
                                         data = loadings,
-                                        aes(x = PC1, y = PC2, label = varname),
+                                        aes(x = .data[[xpc]],
+                                            y = .data[[ypc]],
+                                            label = varname),
                                         inherit.aes = FALSE,
                                         fontface = "bold",
                                         vjust = -0.7
                                 )
+                        }
                 }
         }
 
         # ============================================================
         # Loadings-only plot
         # ============================================================
-        if (plot_type == "loadings") {
+        if (plot_type == "loading") {
 
-                loadings <- as.data.frame(pca$rotation[, 1:2])
-                colnames(loadings) <- c("PC1", "PC2")
+                loadings <- as.data.frame(pca$rotation[, pcs])
+                colnames(loadings) <- paste0("PC", pcs)
                 loadings$varname <- rownames(loadings)
 
-                contrib <- (loadings$PC1^2 + loadings$PC2^2) /
-                        sum(loadings$PC1^2 + loadings$PC2^2)
+                contrib <- (loadings[[xpc]]^2 + loadings[[ypc]]^2) /
+                        sum(loadings[[xpc]]^2 + loadings[[ypc]]^2)
 
-                p <- ggplot(loadings, aes(PC1, PC2)) +
+                p <- ggplot(loadings, aes(.data[[xpc]], .data[[ypc]])) +
                         geom_segment(
-                                aes(x = 0, y = 0, xend = PC1, yend = PC2, alpha = contrib),
+                                aes(x = 0, y = 0, xend = .data[[xpc]], yend = .data[[ypc]], alpha = contrib),
                                 arrow = arrow(length = unit(0.2, "cm")),
                                 color = "black"
                         ) +
@@ -282,17 +352,49 @@ plotPCA <- function(data,
                         geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.4) +
                         scale_alpha_continuous(range = c(0.4, 1), guide = "none") +
                         labs(
-                                x = paste0("PC1 (", round(eig_vals[1], 1), "%)"),
-                                y = paste0("PC2 (", round(eig_vals[2], 1), "%)")
+                                x = paste0("PC", pcs[1], " (", round(eig_vals[pcs[1]], 1), "%)"),
+                                y = paste0("PC", pcs[2], " (", round(eig_vals[pcs[2]], 1), "%)")
                         ) +
                         plot_theme
 
-                if (show_labels) {
+                if (loading_labels) {
                         p <- p + ggrepel::geom_text_repel(
                                 aes(label = varname),
                                 size = 3
                         )
                 }
+        }
+
+        # ============================================================
+        # Cumulative variance plot
+        # ============================================================
+        if (plot_type == "cumvar") {
+
+                df_var <- data.frame(
+                        PC = seq_along(eig_vals),
+                        Variance = eig_vals,
+                        Cumulative = cum_var
+                )
+
+                p <- ggplot(df_var, aes(PC, Cumulative)) +
+                        geom_line() +
+                        geom_point(size = 2) +
+                        geom_hline(yintercept = 95, linetype = "dashed", color = "red") +
+                        geom_hline(yintercept = 99, linetype = "dotted", color = "blue") +
+                        annotate("text",
+                                 x = n_pc_95, y = 95,
+                                 label = paste0("PC", n_pc_95),
+                                 vjust = -0.5) +
+                        annotate("text",
+                                 x = n_pc_99, y = 99,
+                                 label = paste0("PC", n_pc_99),
+                                 vjust = -0.5) +
+                        labs(
+                                x = "Principal component (PC)",
+                                y = "Cumulative variance explained (%)"
+                        ) +
+                        ylim(0, 100) +
+                        plot_theme
         }
 
         # ============================================================

@@ -6,9 +6,9 @@
 \usage{
 makeComposite(
   folder = ".",
-  custom_order = NULL,
-  rows = NULL,
-  cols = NULL,
+  custom_order,
+  rows,
+  cols,
   spacing = 15,
   resize_mode = c("none", "fit", "fill", "width", "height", "both"),
   labels = list(),
@@ -22,53 +22,54 @@ makeComposite(
 )
 }
 \arguments{
-\item{folder}{Character. Path to the folder containing images. Default is working directory (`"."`).}
+\item{folder}{Character. Path to the folder containing images. Default is `"."` (working directory).}
 
-\item{custom_order}{Character vector. Set of filenames (use NA for blank slots).}
+\item{custom_order}{Character vector. Ordered set of filenames (use NA for blank slots). Argument is required.}
 
-\item{rows}{Integer. Number of rows in the grid.}
+\item{rows}{Integer. Number of rows in the grid. Argument is required.}
 
-\item{cols}{Integer. Number of columns in the grid.}
+\item{cols}{Integer. Number of columns in the grid. Argument is required.}
 
 \item{spacing}{Integer. Spacing (in pixels) between tiles. Default is `15`}
 
-\item{resize_mode}{Character. Method to resize panels in the composite. Options are:
+\item{resize_mode}{Character. Method to resize panels in the composite. One of:
 \describe{
-  \item{`"none"`}{Keep each panel at its original size.}
-  \item{`"fit"`}{Scale each panel to fit within the smallest image dimensions, preserving aspect ratio.}
-  \item{`"fill"`}{Scale and crop each panel to exactly fill the smallest dimensions.}
-  \item{`"width"`}{Resize each panel to the minimum width, keeping the original height.}
-  \item{`"height"`}{Resize each panel to the minimum height, keeping the original width.}
-  \item{`"both"`}{Force panels to the exact width and height, which may distort aspect ratio.}
+  \item{`"none"`}{Keeps each panel at its original size (default).}
+  \item{`"fit"`}{Scales each panel to fit within the smallest width and height among all images, preserving aspect ratio; no cropping occurs, empty space may remain.}
+  \item{`"fill"`}{Scales each panel to completely cover the smallest width and height among all images, preserving aspect ratio, then crops any excess.}
+  \item{`"width"`}{Resizes each panel to match the minimum width among all images, preserving aspect ratio; height scales accordingly.}
+  \item{`"height"`}{Resizes each panel to match the minimum height among all images, preserving aspect ratio; width scales accordingly.}
+  \item{`"both"`}{Resizes each panel to exactly match the minimum width and height among all images, without preserving aspect ratio; may cause distortion.}
 }}
 
-\item{labels}{List of up to 4 character vectors. Each vector corresponds to one label layer and must be the same length as the number of non-NA images. Use empty strings "" or NULL entries to omit specific labels.}
+\item{labels}{List of up to 4 character vectors. Labels to apply to each panel. Each vector corresponds to one label layer and must be the same length as the number of non-NA images. Use empty strings "" or NULL entries to omit specific labels. Default is `list()` (no labels).}
 
-\item{label_settings}{List of named lists. Each named list specifies settings for a label layer. Options include:
+\item{label_settings}{List of named lists. Each named list specifies styling options for a label layer. Options include:
 \describe{
-  \item{`size`}{Font size (e.g., 100).}
-  \item{`color`}{Font color.}
+  \item{`size`}{Font size (e.g., `100`).}
+  \item{`color`}{Font color (e.g., `"black"`.}
   \item{`font`}{Font family (e.g., `"Arial"`).}
-  \item{`boxcolor`}{Background color behind text, or `NA` for none.}
+  \item{`boxcolor`}{Background color behind text (e.g., `"white"`), or `NA` for none.}
   \item{`location`}{Offset from the gravity anchor (e.g., `"+10+10"`).}
   \item{`gravity`}{Placement anchor for the label (e.g., `"northwest"`).}
   \item{`weight`}{Font weight (e.g., `400` = normal, `700` = bold).}
-}}
+}
+Default is `list()` (default styling is used).}
 
 \item{background_color}{Character. Background color used for blank tiles and borders. Use `"none"` for transparency. Default is `"white"`.}
 
-\item{desired_width}{Numeric. Desired width of final image (in cm or px). Default is `15`}
+\item{desired_width}{Numeric. Desired width of final image (in centimeters, inches or pixels). Default is `15`}
 
-\item{width_unit}{Character. Either "cm" or "px". Default is `"cm"`}
+\item{width_unit}{Character. One of: `"cm"`, `"in"`, or `"px"`. Default is `"cm"`}
 
 \item{ppi}{Numeric. Resolution (pixels per inch) for output file. Default is `300`}
 
-\item{output_format}{Character. File format for saving plots. Examples: `"tiff"`, `"png"`, `"pdf"`. Default is `"tiff"`.}
+\item{output_format}{Character. File format for saving image. Examples: `"tiff"`, `"png"`, `"pdf"`. Default is `"tiff"`.}
 
-\item{output_folder}{Character. Path to folder where image is saved. If NULL (default), image is not saved; if `"."`, image is saved in the working directory.}
+\item{output_folder}{Character. Path to folder where the composite image is saved. If NULL (default), the image is not saved and a `magick image` object is returned; If specified, the image is saved automatically; if `"."`, the image is saved in the working directory.}
 }
 \value{
-Saves image composite to a specified output folder. Returns `NULL` (used for side-effects).
+If `output_folder = NULL`, the function returns a `magick image` object. When `output_folder` is specified, the composite image is written directly to disk and returned invisibly.
 }
 \description{
 Generates a composite image grid with customizable layout, labels and resizing options. Suitable for spectra and other image types.

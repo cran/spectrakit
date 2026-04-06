@@ -8,38 +8,40 @@
 #' @importFrom dplyr %>%
 #' @importFrom data.table :=
 #'
-#' @param folder Character. Path to the folder containing spectral files. Default is working directory (`"."`).
+#' @param folder Character. Path to the folder containing spectra files. Default is `"."` (working directory).
 #' @param file_type Character. File extension (without dot) to search for. Default is `"csv"`.
 #' @param sep Character. Delimiter for file columns. Use `","` for comma-separated (default) or `"\\t"` for tab-delimited files.
 #' @param header Logical. Whether the files contain a header row. Default is `TRUE`.
-#' @param normalization Character. Normalization method to apply to y-axis data. Options are:
+#' @param normalization Character. Normalization method to apply to y-axis data. One of:
 #'   \describe{
 #'     \item{`"none"`}{No normalization is applied (default).}
 #'     \item{`"simple"`}{Divide by the maximum intensity.}
 #'     \item{`"min-max"`}{Scale intensities to the [0,1] range.}
 #'     \item{`"z-score"`}{Subtract the mean and divide by the standard deviation of intensities.}
 #'     \item{`"area"`}{Divide by the total sum of intensities so the spectrum area = 1.}
-#'     \item{`"vector"`}{Normalize the spectrum as a unit vector by dividing by the square root of the sum of squared intensities (L2 normalization).}
+#'     \item{`"vector"`}{Normalize the spectrum as a unit vector by dividing by the square root of the sum of squared intensities; also known as L2 normalization.}
 #'   }
+#' @param norm_scope Character. Determines whether normalization is applied to the full spectrum or only to a specified range. One of: `"global"` (full spectrum), or `"range"` (specified range). Default is `"global"`.
 #' @param x_config Numeric vector of length 3. Specifies x-axis range and breaks: `c(min, max, step)`.
+#'   If `NULL` (default), the full data range is used and axis breaks are set every 100 units.
 #' @param x_reverse Logical. If `TRUE`, reverses the x-axis. Default is `FALSE`.
-#' @param y_trans Character. Transformation for the y-axis. One of `"linear"`, `"log10"`, or `"sqrt"`. Default is `"linear"`.
-#' @param x_label Character or expression. Label for the x-axis. Supports mathematical notation via `expression()`.
-#' @param y_label Character or expression. Label for the y-axis. Supports mathematical notation via `expression()`.
+#' @param y_trans Character. Transformation for the y-axis. One of: `"linear"`, `"log10"`, or `"sqrt"`. Default is `"linear"`.
+#' @param x_label Character or expression. Label for the x-axis. Supports mathematical notation via `expression()`, e.g., \code{expression(Wavenumber~(cm^{-1}))}. Default is `NULL` (no axis label).
+#' @param y_label Character or expression. Label for the y-axis. Supports mathematical notation via `expression()`, e.g., \code{expression(Delta*E["00"]^{"*"})}. Default is `NULL` (no axis label).
 #' @param line_size Numeric. Width of the spectral lines. Default is `0.5`.
-#' @param palette Character or vector. Color setting: a single color (e.g., `"black"`), a ColorBrewer palette name (e.g., `"Dark2"`), or a custom color vector.
-#' @param plot_mode Character. Plotting style. One of `"individual"` (one plot per spectrum), `"overlapped"` (all in one), or `"stacked"` (faceted). Default is `"individual"`.
+#' @param palette Character or vector. Color setting. One of: a single color (e.g., `"black"`), a ColorBrewer palette name (e.g., `"Dark2"`; requires the package to be installed), or a custom color vector. Default is `"black"`.
+#' @param plot_mode Character. Plotting style. One of `"individual"` (one plot per spectrum), `"overlapped"` (all in one), or `"stacked"` (vertically offset). Default is `"individual"`.
 #' @param display_names Logical. If `TRUE`, adds file names as titles to individual spectra or a legend to combined spectra. Default is `FALSE`.
-#' @param vertical_lines Numeric vector. Adds vertical dashed lines at given x positions.
-#' @param shaded_ROIs List of numeric vectors. Each vector must have two elements (`xmin`, `xmax`) to define shaded x regions.
-#' @param annotations Data frame with columns `file` (file name without extension), `x`, `y`, and `label`. Adds annotation labels to specific points in spectra.
+#' @param vertical_lines Numeric vector. Adds vertical dashed lines at given x positions. Default is `NULL`.
+#' @param shaded_ROIs List of numeric vectors. Each vector must have two elements (`xmin`, `xmax`) to define shaded x regions. Default is `NULL`.
+#' @param annotations Data frame with columns `file` (file name without extension), `x`, `y`, and `label`. Adds annotation labels to specific points in spectra. Default is `NULL`.
 #' @param output_format Character. File format for saving plots. Examples: `"tiff"`, `"png"`, `"pdf"`. Default is `"tiff"`.
-#' @param output_folder Character. Path to folder where plots are saved. If NULL (default), plots are not saved; if `"."`, plots are saved in the working directory.
+#' @param output_folder Character. Path to folder where plots are saved. If NULL (default), plots are not saved and the ggplot object is returned. If specified, plots are saved automatically; if `"."`, plots are saved in the working directory.
 #'
 #' @details
 #' Color settings can support color-blind-friendly palettes from `RColorBrewer`. Use `display.brewer.all(colorblindFriendly = TRUE)` to preview.
 #'
-#' @return Saves plots to a specified output folder. Returns `NULL` (used for side-effects).
+#' @return If `output_folder = NULL`, the function returns a `ggplot` object. Otherwise, returns `NULL` invisibly after saving the plots to a specified output folder.
 #'
 #' @examples
 #' # Create a temporary directory and write mock spectra files
@@ -67,7 +69,7 @@
 #'   vertical_lines = c(10, 20),
 #'   shaded_ROIs = list(c(12, 14), c(18, 22)),
 #'   output_format = "png",
-#'   output_folder = tmp_dir
+#'   output_folder = NULL
 #' )
 #'
 #' @importFrom readr read_delim
@@ -88,6 +90,7 @@ plotSpectra <- function(
                 sep = ",",
                 header = TRUE,
                 normalization = c("none", "simple", "min-max", "z-score", "area", "vector"),
+                norm_scope = c("global", "range"),
                 x_config = NULL,
                 x_reverse = FALSE,
                 y_trans = c("linear", "log10", "sqrt"),
@@ -105,6 +108,7 @@ plotSpectra <- function(
 ) {
 
         normalization <- match.arg(normalization)
+        norm_scope <- match.arg(norm_scope)
         plot_mode <- match.arg(plot_mode)
         y_trans <- match.arg(y_trans)
 
@@ -128,44 +132,115 @@ plotSpectra <- function(
                 )
 
         files <- list.files(folder, pattern = paste0("\\.", file_type, "$"), full.names = TRUE)
+        if(length(files) == 0) stop("No files found in folder.")
+
+        # Helper for spectrum normalization
+        normalize_y <- function(y) {
+                switch(normalization,
+                       none = y,
+                       simple = y / max(y, na.rm = TRUE),
+                       "min-max" = (y - min(y, na.rm = TRUE)) / (max(y, na.rm = TRUE) - min(y, na.rm = TRUE)),
+                       "z-score" = (y - mean(y, na.rm = TRUE)) / sd(y, na.rm = TRUE),
+                       "area" = y / sum(y, na.rm = TRUE),
+                       "vector" = y / sqrt(sum(y^2, na.rm = TRUE))
+                )
+        }
 
         spectra_list <- lapply(files, function(file) {
-
-                data <- read_delim(file, delim = sep, col_names = header, show_col_types = FALSE)
-
-                if (ncol(data) < 2)
-                        stop(paste("File", file, "must have at least two columns for x and y"))
-
+                data <- readr::read_delim(file, delim = sep, col_names = header, show_col_types = FALSE)
+                if(ncol(data) < 2) stop("File must have at least two columns for x and y")
                 colnames(data)[1:2] <- c("x", "y")
+                data <- dplyr::mutate(data, x = as.numeric(x), y = as.numeric(y))
 
-                data <- data %>%
-                        mutate(x = as.numeric(x), y = as.numeric(y)) %>%
-                        filter(x >= x_config[1], x <= x_config[2])
+                # --- determine range subset
+                if (!is.null(x_config)) {
+                        data_range <- dplyr::filter(data, x >= x_config[1], x <= x_config[2])
+                } else {
+                        data_range <- data
+                }
 
-                data$y <- switch(
-                        normalization,
-                        none = data$y,
-                        simple = data$y / max(data$y, na.rm = TRUE),
-                        "min-max" = (data$y - min(data$y, na.rm = TRUE)) /
-                                (max(data$y, na.rm = TRUE) - min(data$y, na.rm = TRUE)),
-                        "z-score" = (data$y - mean(data$y, na.rm = TRUE)) / sd(data$y, na.rm = TRUE),
-                        "area" = data$y / sum(data$y, na.rm = TRUE),
-                        "vector" = data$y / sqrt(sum(data$y^2, na.rm = TRUE))
-                )
+                # --- norm_scope logic
+                if (norm_scope == "global") {
+                        data$y <- normalize_y(data$y)
+                } else {
+                        data_range$y <- normalize_y(data_range$y)
+                        data <- dplyr::left_join(
+                                data[, "x", drop = FALSE],
+                                data_range,
+                                by = "x"
+                        )
+                }
 
                 data$file <- tools::file_path_sans_ext(basename(file))
                 data
         })
 
-        spectra <- bind_rows(spectra_list)
+        spectra <- dplyr::bind_rows(spectra_list)
+        n_files <- length(unique(spectra$file))
+
+        # Helper to apply x scale consistently
+        apply_x_scale <- function(p, x_vals) {
+
+                if (is.null(x_config)) {
+
+                        x_min <- min(x_vals, na.rm = TRUE)
+                        x_max <- max(x_vals, na.rm = TRUE)
+
+                        if (x_reverse) {
+                                p + scale_x_reverse(
+                                        limits = c(x_max, x_min),
+                                        breaks = seq(
+                                                ceiling(x_max / 100) * 100,
+                                                floor(x_min / 100) * 100,
+                                                by = -100
+                                        ),
+                                        expand = expansion()
+                                )
+                        } else {
+                                p + scale_x_continuous(
+                                        limits = c(x_min, x_max),
+                                        breaks = seq(
+                                                floor(x_min / 100) * 100,
+                                                ceiling(x_max / 100) * 100,
+                                                by = 100
+                                        ),
+                                        expand = expansion()
+                                )
+                        }
+
+                } else {
+
+                        if (x_reverse) {
+                                p + scale_x_reverse(
+                                        limits = c(x_config[2], x_config[1]),
+                                        breaks = seq(x_config[2], x_config[1], -x_config[3]),
+                                        expand = expansion()
+                                )
+                        } else {
+                                p + scale_x_continuous(
+                                        limits = x_config[1:2],
+                                        breaks = seq(x_config[1], x_config[2], x_config[3]),
+                                        expand = expansion()
+                                )
+                        }
+                }
+        }
 
         n_files <- length(unique(spectra$file))
-        color_scale <- if (length(palette) == 1 && palette != "Dark2") {
+        color_scale <- if (length(palette) == 1 &&
+                           requireNamespace("RColorBrewer", quietly = TRUE) &&
+                           palette %in% rownames(RColorBrewer::brewer.pal.info)) {
+
+                scale_color_brewer(palette = palette)
+
+        } else if (length(palette) == 1) {
+
                 scale_color_manual(values = rep(palette, n_files))
-        } else if (identical(palette, "Dark2")) {
-                scale_color_brewer(palette = "Dark2")
+
         } else if (length(palette) > 1) {
+
                 scale_color_manual(values = rep(palette, length.out = n_files))
+
         } else {
                 stop("Invalid `palette`.")
         }
@@ -176,10 +251,28 @@ plotSpectra <- function(
 
                         data_sub <- filter(spectra, file == !!file_name)
 
+                        if (length(palette) == 1 &&
+                            requireNamespace("RColorBrewer", quietly = TRUE) &&
+                            palette %in% rownames(RColorBrewer::brewer.pal.info)) {
+
+                                col <- scales::brewer_pal(palette = palette)(1)
+
+                        } else if (length(palette) == 1) {
+
+                                col <- palette
+
+                        } else if (length(palette) > 1) {
+
+                                col <- palette[1]
+
+                        } else {
+                                stop("Invalid `palette`.")
+                        }
+
                         p <- ggplot(data_sub, aes(x = x, y = y)) +
                                 geom_line(
                                         linewidth = line_size,
-                                        color = if (length(palette) == 1 && palette != "Dark2") palette else "black"
+                                        color = col
                                 ) +
                                 labs(
                                         x = x_label,
@@ -188,21 +281,8 @@ plotSpectra <- function(
                                 ) +
                                 plot_theme
 
-                        if (!is.null(x_config)) {
-                                if (x_reverse) {
-                                        p <- p + scale_x_reverse(
-                                                limits = c(x_config[2], x_config[1]),
-                                                breaks = seq(x_config[2], x_config[1], -x_config[3]),
-                                                expand = expansion()
-                                        )
-                                } else {
-                                        p <- p + scale_x_continuous(
-                                                limits = x_config[1:2],
-                                                breaks = seq(x_config[1], x_config[2], x_config[3]),
-                                                expand = expansion()
-                                        )
-                                }
-                        }
+                        # Apply proper x scaling
+                        p <- apply_x_scale(p, data_sub$x)
 
                         if (y_trans != "linear") {
                                 p <- p + scale_y_continuous(trans = y_trans)
@@ -263,21 +343,8 @@ plotSpectra <- function(
                         plot_theme +
                         color_scale
 
-                if (!is.null(x_config)) {
-                        if (x_reverse) {
-                                p <- p + scale_x_reverse(
-                                        limits = c(x_config[2], x_config[1]),
-                                        breaks = seq(x_config[2], x_config[1], -x_config[3]),
-                                        expand = expansion()
-                                )
-                        } else {
-                                p <- p + scale_x_continuous(
-                                        limits = x_config[1:2],
-                                        breaks = seq(x_config[1], x_config[2], x_config[3]),
-                                        expand = expansion()
-                                )
-                        }
-                }
+                # Apply proper x scaling (global)
+                p <- apply_x_scale(p, spectra$x)
 
                 if (y_trans != "linear") {
                         p <- p + scale_y_continuous(trans = y_trans)
